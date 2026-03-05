@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.test import APITestCase
-from .models import Board, Column
+from .models import Board, Column, Card
 
 class KanbanTests(APITestCase):
     
@@ -62,3 +62,32 @@ class KanbanTests(APITestCase):
         
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['name'], "Tablero de Micaela")
+
+def test_get_board_retorna_json_anidado(self):
+        """
+        Verifica que al pedir el detalle de un tablero, el JSON de respuesta
+        incluya sus columnas, y a su vez, las tarjetas de esas columnas.
+        """
+        
+        board_test = Board.objects.create(owner=self.user1, name="Tablero Complejo")
+        columna_todo = Column.objects.create(board=board_test, name="To Do", position=1)
+        tarjeta_1 = Card.objects.create(column=columna_todo, title="Aprender AWS", description="Crear RDS")
+        
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(f'{self.board_url}{board_test.id}/')
+      
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        
+        json_data = response.data
+
+        self.assertEqual(json_data['name'], "Tablero Complejo")
+        self.assertIn('columns', json_data, "El JSON debe contener la clave 'columns'")
+        
+        columnas = json_data['columns']
+        self.assertEqual(len(columnas), 1)
+        self.assertEqual(columnas[0]['name'], "To Do")
+        self.assertIn('cards', columnas[0], "Cada columna debe contener la clave 'cards'")
+        
+        tarjetas = columnas[0]['cards']
+        self.assertEqual(len(tarjetas), 1)
+        self.assertEqual(tarjetas[0]['title'], "Aprender AWS")
